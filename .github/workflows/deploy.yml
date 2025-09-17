@@ -46,4 +46,9 @@ jobs:
       run: |
         helm upgrade --install python-app ./python-app \
           --set image.repository=us-central1-docker.pkg.dev/gcp-test-472411/my-docker-repo/python-app \
-          --set image.tag=latest
+          --set image.tag=latest \
+          --namespace default
+
+    - name: Force rollout restart
+      run: |
+        kubectl rollout restart deployment python-app -n default
