@@ -1,4 +1,4 @@
-name: Deploy Python App to GKE with Helm (Keyless)
+name: Deploy to GKE with Helm (Keyless)
 
 on:
   push:
@@ -7,10 +7,6 @@ on:
 permissions:
   contents: read
   id-token: write
-
-defaults:
-  run:
-    working-directory: ./python-app  # Dockerfile location
 
 jobs:
   build-deploy:
@@ -32,15 +28,9 @@ jobs:
 
     - name: Build & push Docker image
       run: |
-        export PROJECT=gcp-test-472411
-        export REPO=my-docker-repo
-        export IMAGE=python-app
-        export TAG=$(date +%s)
-        
-        docker build -t us-central1-docker.pkg.dev/${PROJECT}/${REPO}/${IMAGE}:${TAG} .
-        docker push us-central1-docker.pkg.dev/${PROJECT}/${REPO}/${IMAGE}:${TAG}
-
-        echo "IMAGE_TAG=$TAG" >> $GITHUB_ENV
+        IMAGE="us-central1-docker.pkg.dev/gcp-test-472411/my-docker-repo/python-app:latest"
+        docker build -t $IMAGE .
+        docker push $IMAGE
 
     - name: Get GKE credentials
       uses: google-github-actions/get-gke-credentials@v3
@@ -56,10 +46,10 @@ jobs:
       run: |
         helm upgrade --install python-app ./python-app \
           --set image.repository=us-central1-docker.pkg.dev/gcp-test-472411/my-docker-repo/python-app \
-          --set image.tag=${{ env.IMAGE_TAG }} \
+          --set image.tag=latest
+          --set image.tag=latest \
           --namespace default
 
     - name: Force rollout restart
       run: |
-        kubectl rollout restart deployment/python-app -n default
-        kubectl rollout status deployment/python-app -n default --timeout=3m
+        kubectl rollout restart deployment python-app -n default
