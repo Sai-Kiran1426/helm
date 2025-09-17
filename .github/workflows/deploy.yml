@@ -12,43 +12,51 @@ jobs:
   build-deploy:
     runs-on: ubuntu-latest
 
+    defaults:
+      run:
+        working-directory: ./python-app   # <--- Path where Dockerfile & app.py exist
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - id: auth
-      name: Authenticate to GCP via Workload Identity Federation
-      uses: google-github-actions/auth@v3
-      with:
-        workload_identity_provider: "projects/410150718166/locations/global/workloadIdentityPools/github-h/providers/github-provider-h"
-        service_account: "github-actions@gcp-test-472411.iam.gserviceaccount.com"
+      - id: auth
+        name: Authenticate to GCP via Workload Identity Federation
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: "projects/410150718166/locations/global/workloadIdentityPools/github-h/providers/github-provider-h"
+          service_account: "github-actions@gcp-test-472411.iam.gserviceaccount.com"
 
-    - name: Configure Docker auth
-      run: gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
+      - name: Configure Docker auth
+        run: gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
 
-    - name: Build & push Docker image
-      run: |
-        IMAGE="us-central1-docker.pkg.dev/gcp-test-472411/my-docker-repo/python-app:latest"
-        docker build -t $IMAGE .
-        docker push $IMAGE
+      - name: Build & push Docker image
+        run: |
+          export PROJECT=gcp-test-472411
+          export REPO=my-docker-repo
+          export IMAGE=python-app
+          export TAG=$(date +%s)
+          docker build -t us-central1-docker.pkg.dev/${PROJECT}/${REPO}/${IMAGE}:${TAG} .
+          docker push us-central1-docker.pkg.dev/${PROJECT}/${REPO}/${IMAGE}:${TAG}
+          echo "IMAGE_TAG=$TAG" >> $GITHUB_ENV
 
-    - name: Get GKE credentials
-      uses: google-github-actions/get-gke-credentials@v3
-      with:
-        cluster_name: "python-gke-cluster"
-        location: "us-central1-a"
-        project_id: "gcp-test-472411"
+      - name: Get GKE credentials
+        uses: google-github-actions/get-gke-credentials@v3
+        with:
+          cluster_name: "python-gke-cluster"
+          location: "us-central1-a"
+          project_id: "gcp-test-472411"
 
-    - name: Install Helm
-      uses: azure/setup-helm@v4
+      - name: Install Helm
+        uses: azure/setup-helm@v4
 
-    - name: Deploy via Helm
-      run: |
-        helm upgrade --install python-app ./python-app \
-          --set image.repository=us-central1-docker.pkg.dev/gcp-test-472411/my-docker-repo/python-app \
-          --set image.tag=latest \
-          --namespace default
-
-    - name: Force rollout restart
-      run: |
-        kubectl rollout restart deployment python-app -n default
+      - name: Deploy via Helm
+        run: |
+          helm upgrade --install python-app ./ \
+            --set image.repository=us-central1-docker.pkg.dev/gcp-test-472411/my-docker-repo/python-app \
+            --set image.tag=$IMAGE_TAG \
+            --set service.targetPort=5000   # dynamic port
+          
+      - name: Wait for rollout
+        run: |
+          kubectl rollout status deployment/python-app -n default --timeout=3m
