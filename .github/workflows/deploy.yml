@@ -37,7 +37,7 @@ jobs:
       with:
         cluster_name: "demo-cluster"
         location: "us-central1-a"
-        project_id: "saikiran-gcp"
+        project_id: "gcp-test-472411"
 
     - name: Install Helm
       uses: azure/setup-helm@v4
