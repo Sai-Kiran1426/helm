@@ -35,7 +35,7 @@ jobs:
     - name: Get GKE credentials
       uses: google-github-actions/get-gke-credentials@v3
       with:
-        cluster_name: "demo-cluster"
+        cluster_name: "python-gke-cluster"
         location: "us-central1-a"
         project_id: "gcp-test-472411"
 
